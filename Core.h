@@ -16,6 +16,8 @@ using KeyCallback = std::function<void(int, int)>;
 using ResizeCallback = std::function<void(int, int)>;
 using UpdateCallback = std::function<void(float)>;
 
+
+
 class Core
 {
 public:
