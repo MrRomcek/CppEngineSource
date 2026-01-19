@@ -1,17 +1,24 @@
-#pragma once
+п»ї#pragma once
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/matrix.hpp>
+#include <glm/common.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/exponential.hpp>
 #include <glm/vec4.hpp>
 #include <memory>
 #include <functional>
 #include <unordered_map>
 #include <vector>
 #include <string>
-
-// Предварительное объявление
+//$(ProjectDir)include
+// РџСЂРµРґРІР°СЂРёС‚РµР»СЊРЅРѕРµ РѕР±СЉСЏРІР»РµРЅРёРµ
 class Core;
 
-// Типы для callback-функций
+// РўРёРїС‹ РґР»СЏ callback-С„СѓРЅРєС†РёР№
 using KeyCallback = std::function<void(int, int)>;
 using ResizeCallback = std::function<void(int, int)>;
 using UpdateCallback = std::function<void(float)>;
@@ -19,11 +26,11 @@ using UpdateCallback = std::function<void(float)>;
 class Core
 {
 public:
-    // Конфигурация приложения
+    // РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РїСЂРёР»РѕР¶РµРЅРёСЏ
     struct Config {
         unsigned int width = 800;
         unsigned int height = 600;
-        std::string title = "OpenGL Application";
+        std::string title = "CppEngineSource";
         int glMajorVersion = 4;
         int glMinorVersion = 6;
         glm::vec4 clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
@@ -31,36 +38,36 @@ public:
         bool resizable = true;
     };
 
-    // Singleton с ленивой инициализацией и thread-safe (C++11)
+    // Singleton СЃ Р»РµРЅРёРІРѕР№ РёРЅРёС†РёР°Р»РёР·Р°С†РёРµР№ Рё thread-safe (C++11)
     static Core& getInstance() {
         static Core instance;
         return instance;
     }
 
-    // Удаляем копирование и присваивание
+    // РЈРґР°Р»СЏРµРј РєРѕРїРёСЂРѕРІР°РЅРёРµ Рё РїСЂРёСЃРІР°РёРІР°РЅРёРµ
     Core(const Core&) = delete;
     Core& operator=(const Core&) = delete;
 
-    // Инициализация с конфигурацией
+    // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СЃ РєРѕРЅС„РёРіСѓСЂР°С†РёРµР№
     bool initialize(const Config& config = Config());
 
-    // Запуск основного цикла
+    // Р—Р°РїСѓСЃРє РѕСЃРЅРѕРІРЅРѕРіРѕ С†РёРєР»Р°
     void run();
 
-    // Остановка приложения
+    // РћСЃС‚Р°РЅРѕРІРєР° РїСЂРёР»РѕР¶РµРЅРёСЏ
     void stop();
 
-    // Установка callback'ов
+    // РЈСЃС‚Р°РЅРѕРІРєР° callback'РѕРІ
     void setKeyCallback(KeyCallback callback);
     void setResizeCallback(ResizeCallback callback);
     void setUpdateCallback(UpdateCallback callback);
 
-    // Утилиты
+    // РЈС‚РёР»РёС‚С‹
     GLFWwindow* getWindow() const { return window; }
     const Config& getConfig() const { return config; }
     bool isRunning() const { return running; }
 
-    // Изменение параметров во время выполнения
+    // РР·РјРµРЅРµРЅРёРµ РїР°СЂР°РјРµС‚СЂРѕРІ РІРѕ РІСЂРµРјСЏ РІС‹РїРѕР»РЅРµРЅРёСЏ
     void setClearColor(const glm::vec4& color);
     void setWindowSize(unsigned int width, unsigned int height);
     void setWindowTitle(const std::string& title);
@@ -69,40 +76,40 @@ private:
     Core() = default;
     ~Core();
 
-    // Callback-функции GLFW
+    // Callback-С„СѓРЅРєС†РёРё GLFW
     static void framebufferSizeCallback(GLFWwindow* window, int width, int height);
     static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
-    // Внутренние методы
+    // Р’РЅСѓС‚СЂРµРЅРЅРёРµ РјРµС‚РѕРґС‹
     void processInput();
     void shutdown();
 
-    // Члены класса
+    // Р§Р»РµРЅС‹ РєР»Р°СЃСЃР°
     GLFWwindow* window = nullptr;
     Config config;
     bool initialized = false;
     bool running = false;
 
-    // Callback'и
+    // Callback'Рё
     KeyCallback keyCallbackFunc;
     ResizeCallback resizeCallbackFunc;
     UpdateCallback updateCallbackFunc;
 
-    // Состояние клавиш
+    // РЎРѕСЃС‚РѕСЏРЅРёРµ РєР»Р°РІРёС€
     std::unordered_map<int, bool> keyPressed;
 
-    // Таймер для deltaTime
+    // РўР°Р№РјРµСЂ РґР»СЏ deltaTime
     float deltaTime = 0.0f;
     float lastFrame = 0.0f;
 };
 
-// Вспомогательные функции
+// Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ С„СѓРЅРєС†РёРё
 namespace CoreUtils {
     bool checkGLError(const char* function, const char* file, int line);
     void printGLInfo();
 }
 
-// Макрос для проверки ошибок OpenGL
+// РњР°РєСЂРѕСЃ РґР»СЏ РїСЂРѕРІРµСЂРєРё РѕС€РёР±РѕРє OpenGL
 #ifdef _DEBUG
 #define GL_CHECK() CoreUtils::checkGLError(__FUNCTION__, __FILE__, __LINE__)
 #else
