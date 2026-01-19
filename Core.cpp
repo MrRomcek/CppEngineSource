@@ -166,12 +166,7 @@ void Core::run() {
         std::cerr << "Core not initialized!" << std::endl;
         return;
     }
-    float vertices[] = {
-        // �������          // �����
-        -0.5f , -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,  // ����� ������ ���� (�������)
-         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  // ������ ������ ���� (�������)
-         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f   // ������� ������� (�����)
-    };
+
 
     // �������
     const char* vertexShaderSource = R"(
@@ -244,36 +239,12 @@ void main() {
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    // ��������� VBO (Vertex Buffer Object) � VAO (Vertex Array Object)
-    unsigned int VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    // �������� VAO
-    glBindVertexArray(VAO);
-
-    // ����������� ������ � �����
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // ��������� ��������� ������
-    // ������� 0: ������� (3 float)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // ������� 1: ����� (3 float) - �������� �� 3 float
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
-        (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // �������
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    
 
     running = true;
     lastFrame = static_cast<float>(glfwGetTime());
-    //GLint colorLoc = glGetUniformLocation(shaderProgram, "objectcolor");
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
+
+ 
     GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
     GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
     glm::mat4 view;

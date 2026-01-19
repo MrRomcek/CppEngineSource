@@ -14,6 +14,10 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+
+#include "GameObject.h"
+
+
 //$(ProjectDir)include
 // Предварительное объявление
 class Core;
