@@ -75,8 +75,8 @@ bool Core::initialize(const Config& config) {
         config.clearColor.a
     );
 
-    // ��������� ����� ������� (���� ����� �������������� 3D)
-    glEnable(GL_DEPTH_TEST);
+    // Включение теста глубины (если будет использоваться 3D)
+    // glEnable(GL_DEPTH_TEST);
 
     // ����� ���������� � OpenGL
     CoreUtils::printGLInfo();
@@ -85,76 +85,6 @@ bool Core::initialize(const Config& config) {
     std::cout << "Core initialized successfully!" << std::endl;
     return true;
 }
-/*
-const char* fragmentShaderSource = "#version 330 core\n"
-    "uniform vec3 colorA;\n"
-    "uniform vec3 colorB;\n"
-    "uniform vec3 colorC;\n"
-    "in float vertexColorMix;\n"  // ����� ����� ���������� �� ���������� �������
-    "out vec4 FragColor;\n"
-    "void main()\n"
-    "{\n"
-    "   // ��������� ����� � ����������� �� �������\n"
-    "   vec3 color = mix(mix(colorA, colorB, vertexColorMix), colorC, vertexColorMix);\n"
-    "   FragColor = vec4(color, 1.0);\n"
-    "}\0";
-
-
-    // ��������� uniform ����������
-glUseProgram(shaderProgram);
-int colorALoc = glGetUniformLocation(shaderProgram, "colorA");
-int colorBLoc = glGetUniformLocation(shaderProgram, "colorB");
-int colorCLoc = glGetUniformLocation(shaderProgram, "colorC");
-
-glUniform3f(colorALoc, 1.0f, 0.0f, 0.0f);  // �������
-glUniform3f(colorBLoc, 0.0f, 1.0f, 0.0f);  // �������
-glUniform3f(colorCLoc, 0.0f, 0.0f, 1.0f);  // �����
-*/
-
-
-
-
-/*
-// ������:
-const char* vertexShaderSource = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
-
-out vec3 ourColor;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
-    ourColor = aColor;
-}
-)";
-
-// � �������� �����:
-glUseProgram(shaderProgram);
-
-// ����� ������� (���� ��� �� ����)
-glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-// ������ 1
-glm::mat4 model1 = glm::mat4(1.0f);
-model1 = glm::translate(model1, glm::vec3(-1.0f, 0.0f, 0.0f));
-model1 = glm::rotate(model1, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model1));
-glBindVertexArray(VAO1);
-glDrawArrays(GL_TRIANGLES, 0, 3);
-
-// ������ 2
-glm::mat4 model2 = glm::mat4(1.0f);
-model2 = glm::translate(model2, glm::vec3(1.0f, 0.0f, 0.0f));
-model2 = glm::rotate(model2, (float)glfwGetTime() * 2.0f, glm::vec3(0.0f, 0.0f, 1.0f));
-glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model2));
-glBindVertexArray(VAO2);
-glDrawArrays(GL_TRIANGLES, 0, 3);
 
 glBindVertexArray(0);
 
@@ -166,119 +96,11 @@ void Core::run() {
         std::cerr << "Core not initialized!" << std::endl;
         return;
     }
-    float vertices[] = {
-        // �������          // �����
-        -0.5f , -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,  // ����� ������ ���� (�������)
-         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  // ������ ������ ���� (�������)
-         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f   // ������� ������� (�����)
-    };
-
-    // �������
-    const char* vertexShaderSource = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
-
-out vec3 ourColor;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
-    ourColor = aColor;
-}
-)";
-
-
-    const char* fragmentShaderSource = "#version 330 core\n"
-        "in vec3 ourColor;\n"                   // ��������� ����������������� ����
-        "out vec4 FragColor;\n"
-        "void main()\n"
-        "{\n"
-        "   FragColor = vec4(ourColor, 1.0);\n" // ���������� ���������� ����
-        "}\0";
-
-
-    // �������� � ���������� ���������� �������
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-
-    // �������� ������ ���������� �������
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // �������� � ���������� ������������ �������
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
-    // �������� ������ ������������ �������
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // �������� ��������� ���������
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    // �������� ������ �������� ���������
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-
-    // �������� �������� (��� ��� � ���������)
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
-    // ��������� VBO (Vertex Buffer Object) � VAO (Vertex Array Object)
-    unsigned int VBO, VAO;
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-
-    // �������� VAO
-    glBindVertexArray(VAO);
-
-    // ����������� ������ � �����
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    // ��������� ��������� ������
-    // ������� 0: ������� (3 float)
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    // ������� 1: ����� (3 float) - �������� �� 3 float
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
-        (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
-
-    // �������
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
 
     running = true;
     lastFrame = static_cast<float>(glfwGetTime());
-    //GLint colorLoc = glGetUniformLocation(shaderProgram, "objectcolor");
-    GLint modelLoc = glGetUniformLocation(shaderProgram, "model");
-    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    glm::mat4 view;
-    glm::mat4 projection;
-    // �������� ���� ����������
+
+    // Основной цикл рендеринга
     while (running && !glfwWindowShouldClose(window)) {
         // ������ deltaTime
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -294,12 +116,11 @@ void main() {
             updateCallbackFunc(deltaTime);
         }
 
-        // ������� �������
-        //glClear(GL_COLOR_BUFFER_BIT);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // ��� 3D
+        // Очистка буферов
+        glClear(GL_COLOR_BUFFER_BIT);
+        // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Для 3D
 
-        // ============ ���������������� ��������� ����� ============
-        glUseProgram(shaderProgram);
+        // ============ Пользовательский рендеринг здесь ============
 
         view = glm::lookAt(
             glm::vec3(0.0f,0.0f,3.0f),
@@ -460,79 +281,3 @@ namespace CoreUtils {
         std::cout << "==========================" << std::endl;
     }
 }
-
-/*
- double mouseX, mouseY;
-    double lastMouseX, lastMouseY;
-    bool firstMouse = true;
-
-    // Callback ��� ������� ����
-    static void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
-        // �������� ��������� �� ��������� Core
-        Core* instance = static_cast<Core*>(glfwGetWindowUserPointer(window));
-        if (instance) {
-            instance->processMousePosition(xpos, ypos);
-        }
-    }
-
-    void processMousePosition(double xpos, double ypos) {
-        if (firstMouse) {
-            lastMouseX = xpos;
-            lastMouseY = ypos;
-            firstMouse = false;
-        }
-
-        // ���������� �������� ������������ ���������� �����
-        double xoffset = xpos - lastMouseX;
-        double yoffset = lastMouseY - ypos; // ����������� Y
-
-        lastMouseX = xpos;
-        lastMouseY = ypos;
-
-        // ��������� ������ ��� ������ ������ ��������
-        // camera.processMouseMovement(xoffset, yoffset);
-
-        mouseX = xpos;
-        mouseY = ypos;
-    }
-
-
-
-
-        // ������������� callback
-        glfwSetCursorPosCallback(window, mousePositionCallback);
-
-        // �����������: ������ � ��������� ������
-        // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
-
-          // ����� ��� ��������� ������� ����
-    glm::vec2 getMousePosition() const {
-        return glm::vec2(mouseX, mouseY);
-    }
-
-    // ����� ��� ��������� �������� ����
-    glm::vec2 getMouseOffset() {
-        if (firstMouse) return glm::vec2(0.0f);
-
-        double xoffset = mouseX - lastMouseX;
-        double yoffset = lastMouseY - mouseY;
-
-        // ���������� ��� ���������� �����
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
-
-        return glm::vec2(xoffset, yoffset);
-    }
-
-    glm::vec2 getMouseNormalized() {
-    int width, height;
-    glfwGetWindowSize(window, &width, &height);
-
-    // ����������� � �������� [-1, 1]
-    float x = (2.0f * mouseX) / width - 1.0f;
-    float y = 1.0f - (2.0f * mouseY) / height; // ����������� Y
-
-    return glm::vec2(x, y);
-}
-*/
