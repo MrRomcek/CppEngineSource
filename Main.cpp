@@ -38,6 +38,7 @@ public:
     }
 
 private:
+    // Обработчик нажатий клавиш
     void onKey(int key, int action) {
         if (action == GLFW_PRESS) {
             switch (key) {
@@ -61,11 +62,13 @@ private:
         }
     }
 
+    // Обработчик изменения размера окна
     void onResize(int width, int height) {
         std::cout << "Window resized to " << width << "x" << height << std::endl;
         // Здесь можно обновить проекционные матрицы и т.д.
     }
 
+    // Обработчик обновления (вызывается каждый кадр)
     void onUpdate(float deltaTime) {
         static float timeAccumulator = 0.0f;
         timeAccumulator += deltaTime;

@@ -17,8 +17,6 @@
 
 #include "GameObject.h"
 
-
-//$(ProjectDir)include
 // Предварительное объявление
 class Core;
 
@@ -27,21 +25,19 @@ using KeyCallback = std::function<void(int, int)>;
 using ResizeCallback = std::function<void(int, int)>;
 using UpdateCallback = std::function<void(float)>;
 
-
-
 class Core
 {
 public:
     // Конфигурация приложения
     struct Config {
-        unsigned int width = 800;
-        unsigned int height = 600;
-        std::string title = "CppEngineSource";
-        int glMajorVersion = 4;
-        int glMinorVersion = 6;
-        glm::vec4 clearColor = { 0.0f, 0.0f, 0.0f, 1.0f };
-        bool vsync = true;
-        bool resizable = true;
+        unsigned int width = 800;           // Ширина окна
+        unsigned int height = 600;          // Высота окна
+        std::string title = "CppEngineSource"; // Заголовок окна
+        int glMajorVersion = 4;             // Основная версия OpenGL
+        int glMinorVersion = 6;             // Дополнительная версия OpenGL
+        glm::vec4 clearColor = { 0.0f, 0.0f, 0.0f, 1.0f }; // Цвет очистки экрана
+        bool vsync = true;                  // Вертикальная синхронизация
+        bool resizable = true;              // Возможность изменения размера окна
     };
 
     // Singleton с ленивой инициализацией и thread-safe (C++11)
@@ -90,24 +86,23 @@ private:
     void processInput();
     void shutdown();
 
-
     // Члены класса
-    GLFWwindow* window = nullptr;
-    Config config;
-    bool initialized = false;
-    bool running = false;
+    GLFWwindow* window = nullptr;          // Указатель на окно GLFW
+    Config config;                         // Конфигурация приложения
+    bool initialized = false;              // Флаг инициализации
+    bool running = false;                  // Флаг выполнения
 
     // Callback'и
-    KeyCallback keyCallbackFunc;
-    ResizeCallback resizeCallbackFunc;
-    UpdateCallback updateCallbackFunc;
+    KeyCallback keyCallbackFunc;           // Callback для клавиатуры
+    ResizeCallback resizeCallbackFunc;     // Callback для изменения размера
+    UpdateCallback updateCallbackFunc;     // Callback для обновления
 
     // Состояние клавиш
     std::unordered_map<int, bool> keyPressed;
 
     // Таймер для deltaTime
-    float deltaTime = 0.0f;
-    float lastFrame = 0.0f;
+    float deltaTime = 0.0f;                // Время между кадрами
+    float lastFrame = 0.0f;                // Время последнего кадра
 };
 
 // Вспомогательные функции

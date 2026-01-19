@@ -144,6 +144,7 @@
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\detail\glm.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\glm.cppm" />
+    <ClCompile Include="Transform.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />
@@ -1186,6 +1187,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Core.h" />
+    <ClInclude Include="GameObject.h" />
     <ClInclude Include="include\glad\glad.h" />
     <ClInclude Include="include\KHR\khrplatform.h" />
     <ClInclude Include="packages\glfw.3.4.0\build\native\include\GLFW\glfw3.h" />
