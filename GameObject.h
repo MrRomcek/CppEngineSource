@@ -10,15 +10,14 @@
 #include <glm/exponential.hpp>
 #include <glm/vec4.hpp>
 
-float vertices[] = {
-    // �������          // �����
-    -0.5f , -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,  // ����� ������ ���� (�������)
-     0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  // ������ ������ ���� (�������)
-     0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f   // ������� ������� (�����)
-};
 
 
 class GameObject {
+    float vertices[36] = {
+        -0.5f , -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  
+         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f  
+    };
 
 public:
 	unsigned int VBO = 0, VAO = 0, EBO = 0;
@@ -53,7 +52,9 @@ public:
 	}
 
 	void virtual render() {
-
+        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
 	}
 
 };

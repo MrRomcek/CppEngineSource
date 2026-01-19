@@ -244,7 +244,11 @@ void main() {
     running = true;
     lastFrame = static_cast<float>(glfwGetTime());
 
- 
+    GameObject obj(shaderProgram);
+    GameObject obj2(shaderProgram);
+    obj.model = glm::translate(obj.model, glm::vec3(1, 1, 0));
+    obj2.model = glm::translate(obj2.model, glm::vec3(-1, -1, 0));
+
     GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
     GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
     glm::mat4 view;
@@ -279,18 +283,13 @@ void main() {
         projection = glm::perspective(glm::radians(45.0f), (float)config.width / config.height, 0.1f, 100.f);
 
 
-
         // ����� ������� (���� ��� �� ����)
         glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
 
-        // ������ 1
-        glm::mat4 model1 = glm::mat4(1.0f);
-        //model1 = glm::translate(model1, glm::vec3(-1.0f, 0.0f, 0.0f));
-        //model1 = glm::rotate(model1, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-        glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model1));
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        obj.render();
+        obj2.render();
 
         glBindVertexArray(0);
 
