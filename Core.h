@@ -86,6 +86,7 @@ private:
     void processInput();
     void shutdown();
 
+
     // Члены класса
     GLFWwindow* window = nullptr;
     Config config;
