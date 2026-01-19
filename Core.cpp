@@ -85,6 +85,31 @@ bool Core::initialize(const Config& config) {
     std::cout << "Core initialized successfully!" << std::endl;
     return true;
 }
+/*
+const char* fragmentShaderSource = "#version 330 core\n"
+    "uniform vec3 colorA;\n"
+    "uniform vec3 colorB;\n"
+    "uniform vec3 colorC;\n"
+    "in float vertexColorMix;\n"  // Нужно будет передавать из вершинного шейдера
+    "out vec4 FragColor;\n"
+    "void main()\n"
+    "{\n"
+    "   // Смешиваем цвета в зависимости от позиции\n"
+    "   vec3 color = mix(mix(colorA, colorB, vertexColorMix), colorC, vertexColorMix);\n"
+    "   FragColor = vec4(color, 1.0);\n"
+    "}\0";
+
+
+    // Установка uniform переменных
+glUseProgram(shaderProgram);
+int colorALoc = glGetUniformLocation(shaderProgram, "colorA");
+int colorBLoc = glGetUniformLocation(shaderProgram, "colorB");
+int colorCLoc = glGetUniformLocation(shaderProgram, "colorC");
+
+glUniform3f(colorALoc, 1.0f, 0.0f, 0.0f);  // Красный
+glUniform3f(colorBLoc, 0.0f, 1.0f, 0.0f);  // Зеленый
+glUniform3f(colorCLoc, 0.0f, 0.0f, 1.0f);  // Синий
+*/
 
 void Core::run() {
     if (!initialized || !window) {
