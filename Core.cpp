@@ -111,6 +111,56 @@ glUniform3f(colorBLoc, 0.0f, 1.0f, 0.0f);  // Зеленый
 glUniform3f(colorCLoc, 0.0f, 0.0f, 1.0f);  // Синий
 */
 
+
+
+
+/*
+// Шейдер:
+const char* vertexShaderSource = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+
+out vec3 ourColor;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    ourColor = aColor;
+}
+)";
+
+// В основном цикле:
+glUseProgram(shaderProgram);
+
+// Общие матрицы (один раз за кадр)
+glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
+
+// ОБЪЕКТ 1
+glm::mat4 model1 = glm::mat4(1.0f);
+model1 = glm::translate(model1, glm::vec3(-1.0f, 0.0f, 0.0f));
+model1 = glm::rotate(model1, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model1));
+glBindVertexArray(VAO1);
+glDrawArrays(GL_TRIANGLES, 0, 3);
+
+// ОБЪЕКТ 2
+glm::mat4 model2 = glm::mat4(1.0f);
+model2 = glm::translate(model2, glm::vec3(1.0f, 0.0f, 0.0f));
+model2 = glm::rotate(model2, (float)glfwGetTime() * 2.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model2));
+glBindVertexArray(VAO2);
+glDrawArrays(GL_TRIANGLES, 0, 3);
+
+glBindVertexArray(0);
+
+
+*/
+
 void Core::run() {
     if (!initialized || !window) {
         std::cerr << "Core not initialized!" << std::endl;
@@ -381,3 +431,79 @@ namespace CoreUtils {
         std::cout << "==========================" << std::endl;
     }
 }
+
+/*
+ double mouseX, mouseY;
+    double lastMouseX, lastMouseY;
+    bool firstMouse = true;
+
+    // Callback для позиции мыши
+    static void mousePositionCallback(GLFWwindow* window, double xpos, double ypos) {
+        // Получаем указатель на экземпляр Core
+        Core* instance = static_cast<Core*>(glfwGetWindowUserPointer(window));
+        if (instance) {
+            instance->processMousePosition(xpos, ypos);
+        }
+    }
+
+    void processMousePosition(double xpos, double ypos) {
+        if (firstMouse) {
+            lastMouseX = xpos;
+            lastMouseY = ypos;
+            firstMouse = false;
+        }
+
+        // Вычисление смещения относительно последнего кадра
+        double xoffset = xpos - lastMouseX;
+        double yoffset = lastMouseY - ypos; // инвертируем Y
+
+        lastMouseX = xpos;
+        lastMouseY = ypos;
+
+        // Обновляем камеру или делаем другие действия
+        // camera.processMouseMovement(xoffset, yoffset);
+
+        mouseX = xpos;
+        mouseY = ypos;
+    }
+
+
+
+
+        // Устанавливаем callback
+        glfwSetCursorPosCallback(window, mousePositionCallback);
+
+        // Опционально: скрыть и захватить курсор
+        // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+
+          // Метод для получения позиции мыши
+    glm::vec2 getMousePosition() const {
+        return glm::vec2(mouseX, mouseY);
+    }
+
+    // Метод для получения смещения мыши
+    glm::vec2 getMouseOffset() {
+        if (firstMouse) return glm::vec2(0.0f);
+
+        double xoffset = mouseX - lastMouseX;
+        double yoffset = lastMouseY - mouseY;
+
+        // Сбрасываем для следующего кадра
+        lastMouseX = mouseX;
+        lastMouseY = mouseY;
+
+        return glm::vec2(xoffset, yoffset);
+    }
+
+    glm::vec2 getMouseNormalized() {
+    int width, height;
+    glfwGetWindowSize(window, &width, &height);
+
+    // Преобразуем в диапазон [-1, 1]
+    float x = (2.0f * mouseX) / width - 1.0f;
+    float y = 1.0f - (2.0f * mouseY) / height; // инвертируем Y
+
+    return glm::vec2(x, y);
+}
+*/
