@@ -92,24 +92,29 @@ void Core::run() {
         return;
     }
     float vertices[] = {
-    -0.5f, -0.5f, 0.0f,  // левый нижний угол
-     0.5f, -0.5f, 0.0f,  // правый нижний угол
-     0.0f,  0.5f, 0.0f   // верхняя вершина
+        // Позиции          // Цвета
+        -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,  // левый нижний угол (красный)
+         0.5f, -0.5f, 0.0f, 0.0f, 1.0f, 0.0f,  // правый нижний угол (зеленый)
+         0.0f,  0.5f, 0.0f, 0.0f, 0.0f, 1.0f   // верхняя вершина (синий)
     };
 
     // Шейдеры
     const char* vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 aPos;\n"
+        "layout (location = 1) in vec3 aColor;\n"  // Добавляем атрибут цвета
+        "out vec3 vertexColor;\n"                  // Передаем цвет в фрагментный шейдер
         "void main()\n"
         "{\n"
-        "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+        "   gl_Position = vec4(aPos, 1.0);\n"
+        "   vertexColor = aColor;\n"               // Передаем цвет дальше
         "}\0";
 
     const char* fragmentShaderSource = "#version 330 core\n"
+        "in vec3 vertexColor;\n"                   // Принимаем интерполированный цвет
         "out vec4 FragColor;\n"
         "void main()\n"
         "{\n"
-        "   FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n" // оранжевый цвет
+        "   FragColor = vec4(vertexColor, 1.0);\n" // Используем переданный цвет
         "}\0";
 
 
@@ -169,8 +174,14 @@ void Core::run() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
     // Установка атрибутов вершин
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // Атрибут 0: позиции (3 float)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+
+    // Атрибут 1: цвета (3 float) - смещение на 3 float
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float),
+        (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
 
     // Отвязка
     glBindBuffer(GL_ARRAY_BUFFER, 0);
