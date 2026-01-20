@@ -139,12 +139,17 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="Light.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="MeshRenderer.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\detail\glm.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\glm.cppm" />
-    <ClCompile Include="Transform.cpp" />
+    <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Texture.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitattributes" />
@@ -1184,12 +1189,21 @@
     <None Include="packages\glm.1.0.3\build\native\include\glm\gtx\vector_angle.inl" />
     <None Include="packages\glm.1.0.3\build\native\include\glm\gtx\vector_query.inl" />
     <None Include="packages\glm.1.0.3\build\native\include\glm\gtx\wrap.inl" />
+    <None Include="shaders\basic.frag" />
+    <None Include="shaders\basic.vert" />
+    <None Include="shaders\phong.frag" />
+    <None Include="shaders\phong.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Component.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="GameObject.h" />
     <ClInclude Include="include\glad\glad.h" />
     <ClInclude Include="include\KHR\khrplatform.h" />
+    <ClInclude Include="Light.h" />
+    <ClInclude Include="Material.h" />
+    <ClInclude Include="MeshRenderer.h" />
     <ClInclude Include="packages\glfw.3.4.0\build\native\include\GLFW\glfw3.h" />
     <ClInclude Include="packages\glfw.3.4.0\build\native\include\GLFW\glfw3native.h" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\common.hpp" />
@@ -1482,6 +1496,13 @@
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vec3.hpp" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vec4.hpp" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vector_relational.hpp" />
+    <ClInclude Include="Renderer.h" />
+    <ClInclude Include="RenderQueue.h" />
+    <ClInclude Include="Scene.h" />
+    <ClInclude Include="Shader.h" />
+    <ClInclude Include="Logger.h" />
+    <ClInclude Include="Texture.h" />
+    <ClInclude Include="Transform.h" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="LICENSE.txt" />

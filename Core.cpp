@@ -1,26 +1,56 @@
 ﻿#include "Core.h"
+#include "GameObject.h"
+#include "Shader.h"
 #include <iostream>
+#include <windows.h> 
 #include <chrono>
+#include <thread>
 
-// ============== Деструктор Core ==============
+// ==================== Вспомогательные функции ====================
+namespace CoreUtils {
+    void printGLInfo() {
+        std::cout << "=== OpenGL Information ===" << std::endl;
+        std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
+        std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+        std::cout << "Version: " << glGetString(GL_VERSION) << std::endl;
+        std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+        std::cout << "==========================" << std::endl;
+    }
+}
 
+// ==================== Конструктор Core ====================
+Core::Core() {
+    // Создаем логгер
+    logger = LogManager::getInstance().createConsoleLogger("Core");
+}
+
+// ==================== Деструктор Core ====================
 Core::~Core() {
     shutdown();
 }
 
+// ==================== Инициализация движка ====================
 bool Core::initialize(const Config& config) {
     if (initialized) {
-        std::cerr << "Core already initialized!" << std::endl;
+        LOG_WARNING("Движок уже инициализирован!");
         return false;
     }
 
+
     this->config = config;
+    logger->setLevel(config.logLevel);
+
+    LOG_INFO("Инициализация движка...");
+    LOG_INFO("Конфигурация: %dx%d, заголовок: %s",
+        config.width, config.height, config.title.c_str());
 
     // Инициализация GLFW
     if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW" << std::endl;
+        LOG_ERROR("Не удалось инициализировать GLFW");
         return false;
     }
+
+    LOG_DEBUG("GLFW инициализирован");
 
     // Настройка GLFW
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, config.glMajorVersion);
@@ -42,29 +72,38 @@ bool Core::initialize(const Config& config) {
     );
 
     if (!window) {
-        std::cerr << "Failed to create GLFW window" << std::endl;
+        LOG_ERROR("Не удалось создать окно GLFW");
         glfwTerminate();
         return false;
     }
 
-    // Делаем окно текущим контекстом
+    LOG_INFO("Окно создано: %dx%d", config.width, config.height);
+
+    // Настройка контекста OpenGL
     glfwMakeContextCurrent(window);
     glfwSetWindowUserPointer(window, this);
 
     // Настройка VSync
     glfwSwapInterval(config.vsync ? 1 : 0);
+    LOG_DEBUG("VSync: %s", config.vsync ? "включен" : "выключен");
 
     // Настройка callback'ов GLFW
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetKeyCallback(window, keyCallback);
+    glfwSetCursorPosCallback(window, mouseCallback);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+
+    LOG_DEBUG("Callback'и GLFW установлены");
 
     // Инициализация GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
+        LOG_ERROR("Не удалось инициализировать GLAD");
         glfwDestroyWindow(window);
         glfwTerminate();
         return false;
     }
+
+    LOG_DEBUG("GLAD инициализирован");
 
     // Настройка OpenGL
     glViewport(0, 0, config.width, config.height);
@@ -75,234 +114,268 @@ bool Core::initialize(const Config& config) {
         config.clearColor.a
     );
 
-    // Включаем тест глубины (если планируется работа с 3D)
+    // Включаем тест глубины для 3D
     glEnable(GL_DEPTH_TEST);
+    LOG_DEBUG("Тест глубины включен");
+
+    // Включаем смешивание цветов для прозрачности
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    LOG_DEBUG("Смешивание цветов включено");
+
+    camera = new Camera();
+    camera->setPosition(glm::vec3(0.0f, 0.0f, 5.0f));
+    LOG_DEBUG("Камера создана и инициализирована");
+
 
     // Вывод информации о OpenGL
     CoreUtils::printGLInfo();
 
+    // Инициализация менеджера шейдеров
+    shaderManager = std::make_unique<ShaderManager>();
+
+    // Настройка многопоточности
+    if (config.multithreaded) {
+        multithreadingEnabled = true;
+        LOG_INFO("Многопоточность включена (%d потоков)", config.maxThreads);
+
+        // Создаем рабочие потоки
+        for (int i = 0; i < config.maxThreads; ++i) {
+            if (i == 0) {
+                // Первый поток для обновления
+                workerThreads.emplace_back(&Core::updateThreadFunction, this);
+                LOG_DEBUG("Создан поток обновления #%d", i);
+            }
+            else {
+                // Остальные потоки для рендеринга
+                workerThreads.emplace_back(&Core::renderThreadFunction, this);
+                LOG_DEBUG("Создан поток рендеринга #%d", i);
+            }
+        }
+    }
+    else {
+        LOG_INFO("Многопоточность выключена");
+    }
+
     initialized = true;
-    std::cout << "Core initialized successfully!" << std::endl;
+    LOG_INFO("Движок успешно инициализирован!");
     return true;
 }
 
+// ==================== Запуск главного цикла ====================
 void Core::run() {
     if (!initialized || !window) {
-        std::cerr << "Core not initialized!" << std::endl;
+        LOG_ERROR("Движок не инициализирован!");
         return;
     }
 
-    // Исходный код вершинного шейдера
-    const char* vertexShaderSource = R"(
-#version 330 core
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
-
-out vec3 ourColor;
-
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
-
-void main() {
-    gl_Position = projection * view * model * vec4(aPos, 1.0);
-    ourColor = aColor;
-}
-)";
-
-    // Исходный код фрагментного шейдера
-    const char* fragmentShaderSource = "#version 330 core\n"
-        "in vec3 ourColor;\n"                   // Входящий цвет из вершинного шейдера
-        "out vec4 FragColor;\n"
-        "void main()\n"
-        "{\n"
-        "   FragColor = vec4(ourColor, 1.0);\n" // Используем интерполированный цвет
-        "}\0";
-
-    // Создание и компиляция вершинного шейдера
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
-    glCompileShader(vertexShader);
-
-    // Проверка компиляции вершинного шейдера
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Создание и компиляция фрагментного шейдера
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
-    glCompileShader(fragmentShader);
-
-    // Проверка компиляции фрагментного шейдера
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Создание шейдерной программы
-    unsigned int shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    // Проверка линковки шейдерной программы
-    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        std::cerr << "ERROR::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
-    }
-
-    // Удаляем шейдеры (они уже залинкованы в программу)
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-
+    LOG_INFO("Запуск главного цикла...");
     running = true;
-    lastFrame = static_cast<float>(glfwGetTime());
 
-    // Создание игровых объектов
-    GameObject obj(shaderProgram);
-    GameObject obj2(shaderProgram);
-    obj.model = glm::translate(obj.model, glm::vec3(1, 1, 0));
-    obj2.model = glm::translate(obj2.model, glm::vec3(-1, -1, 0));
+    // Используем high_resolution_clock для точного времени
+    using Clock = std::chrono::high_resolution_clock;
+    auto lastTime = Clock::now();
+    float deltaTime = 0.0f;
 
-    // Получение location uniform-переменных
-    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    GLint projLoc = glGetUniformLocation(shaderProgram, "projection");
-    glm::mat4 view;
-    glm::mat4 projection;
+    // Для FPS
+    float fpsTimer = 0.0f;
+    int frameCount = 0;
+    float fps = 0.0f;
 
-    // Главный игровой цикл
+    // ==================== Главный игровой цикл ====================
     while (running && !glfwWindowShouldClose(window)) {
-        // Вычисление deltaTime
-        float currentFrame = static_cast<float>(glfwGetTime());
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+        // ТОЧНОЕ вычисление deltaTime
+        auto currentTime = Clock::now();
+        std::chrono::duration<float> elapsed = currentTime - lastTime;
+        deltaTime = elapsed.count();
+        lastTime = currentTime;
+
+        // Ограничиваем deltaTime (защита от "зависаний")
+        if (deltaTime > 0.1f) {
+            deltaTime = 0.1f; // Максимум 100 мс
+            LOG_WARNING("Большой deltaTime: %.3f мс, ограничено до 100 мс", deltaTime * 1000.0f);
+        }
+
+        // Сохраняем для доступа извне
+        this->deltaTime = deltaTime;
+
+        // Расчет FPS
+        frameCount++;
+        fpsTimer += deltaTime;
+
+        // Обновляем FPS каждую секунду
+        if (fpsTimer >= 1.0f) {
+            fps = frameCount / fpsTimer;
+            this->fps = fps; // Сохраняем
+            frameCount = 0;
+            fpsTimer = 0.0f;
+
+            // Выводим FPS в заголовок окна
+            std::string newTitle = config.title +
+                " | FPS: " + std::to_string(static_cast<int>(fps)) +
+                " | Delta: " + std::to_string(deltaTime * 1000.0f).substr(0, 6) + " ms";
+            glfwSetWindowTitle(window, newTitle.c_str());
+
+            LOG_TRACE("FPS: %.1f, DeltaTime: %.3f ms", fps, deltaTime * 1000.0f);
+        }
 
         // Обработка ввода
         processInput();
         glfwPollEvents();
 
-        // Вызов пользовательского update callback
+        // Обновление состояния
+        if (multithreadingEnabled) {
+            // ... многопоточный код ...
+        }
+        else {
+            // Последовательное обновление
+            if (updateCallbackFunc) {
+                updateCallbackFunc(deltaTime);
+            }
+
+            // Последовательный рендеринг
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            // Устанавливаем цвет очистки
+            glClearColor(config.clearColor.r, config.clearColor.g,
+                config.clearColor.b, config.clearColor.a);
+
+            // Настройки OpenGL
+            glEnable(GL_DEPTH_TEST);
+            glDepthFunc(GL_LESS);
+
+            // Вызываем все рендер-коллбэки
+            for (auto& callback : renderCallbacks) {
+                callback();
+            }
+
+            // Проверка ошибок OpenGL
+            GL_CHECK();
+        }
+
+        // Обмен буферов
+        glfwSwapBuffers(window);
+    }
+
+    // Остановка потоков
+    if (multithreadingEnabled) {
+        LOG_INFO("Остановка рабочих потоков...");
+        stopThreads = true;
+        renderCV.notify_all();
+
+        for (auto& thread : workerThreads) {
+            if (thread.joinable()) {
+                thread.join();
+            }
+        }
+        workerThreads.clear();
+        LOG_INFO("Все потоки остановлены");
+    }
+
+    LOG_INFO("Главный цикл завершен");
+    shutdown();
+}
+
+// ==================== Функция потока обновления ====================
+void Core::updateThreadFunction() {
+    LOG_DEBUG("Поток обновления запущен");
+
+    while (!stopThreads) {
+        std::unique_lock<std::mutex> lock(renderMutex);
+        renderCV.wait(lock, [this]() {
+            return updateReady.load() || stopThreads.load();
+            });
+
+        if (stopThreads) break;
+
+        // Выполняем обновление
         if (updateCallbackFunc) {
             updateCallbackFunc(deltaTime);
         }
 
-        // Очистка буферов
+        updateReady = false;
+        renderReady = true;
+        renderCV.notify_one();
+    }
+
+    LOG_DEBUG("Поток обновления завершен");
+}
+
+// ==================== Функция потока рендеринга ====================
+void Core::renderThreadFunction() {
+    LOG_DEBUG("Поток рендеринга запущен");
+
+    while (!stopThreads) {
+        std::unique_lock<std::mutex> lock(renderMutex);
+        renderCV.wait(lock, [this]() {
+            return renderReady.load() || stopThreads.load();
+            });
+
+        if (stopThreads) break;
+
+        // Выполняем рендеринг
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Рендеринг сцены
-        glUseProgram(shaderProgram);
-
-        // Настройка матриц вида и проекции
-        view = glm::lookAt(
-            glm::vec3(0.0f, 0.0f, 3.0f),   // Позиция камеры
-            glm::vec3(0.0f, 0.0f, 0.0f),   // Точка наведения
-            glm::vec3(0.0f, 1.0f, 0.0f));  // Вектор "вверх"
-
-        projection = glm::perspective(
-            glm::radians(45.0f),           // Угол обзора
-            (float)config.width / config.height, // Соотношение сторон
-            0.1f,                          // Ближняя плоскость отсечения
-            100.0f);                       // Дальняя плоскость отсечения
-
-        // Передача матриц в шейдер
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projLoc, 1, GL_FALSE, glm::value_ptr(projection));
-
-        // Рендеринг игровых объектов
-        obj.render();
-        obj2.render();
-
-        glBindVertexArray(0);
-
-        // Проверка ошибок OpenGL
         GL_CHECK();
 
-        // Обмен буферов (отображение результата)
-        glfwSwapBuffers(window);
+        renderReady = true;
+        renderCV.notify_one();
     }
 
-    shutdown();
+    LOG_DEBUG("Поток рендеринга завершен");
 }
 
-void Core::stop() {
-    running = false;
-}
-
-void Core::setKeyCallback(KeyCallback callback) {
-    keyCallbackFunc = std::move(callback);
-}
-
-void Core::setResizeCallback(ResizeCallback callback) {
-    resizeCallbackFunc = std::move(callback);
-}
-
-void Core::setUpdateCallback(UpdateCallback callback) {
-    updateCallbackFunc = std::move(callback);
-}
-
-void Core::setClearColor(const glm::vec4& color) {
-    config.clearColor = color;
-    glClearColor(color.r, color.g, color.b, color.a);
-}
-
-void Core::setWindowSize(unsigned int width, unsigned int height) {
-    if (window) {
-        glfwSetWindowSize(window, width, height);
-        config.width = width;
-        config.height = height;
-    }
-}
-
-void Core::setWindowTitle(const std::string& title) {
-    if (window) {
-        glfwSetWindowTitle(window, title.c_str());
-        config.title = title;
-    }
-}
-
+// ==================== Обработка ввода ====================
 void Core::processInput() {
     // Обработка стандартных клавиш
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        LOG_INFO("Клавиша ESC нажата - завершение работы");
         glfwSetWindowShouldClose(window, true);
     }
 
-    // Вызов пользовательского key callback
+    // Вызов пользовательского callback'а для клавиш
     if (keyCallbackFunc) {
-        // Проверяем все зажатые клавиши
-        for (const auto& [key, pressed] : keyPressed) {
-            if (pressed) {
-                keyCallbackFunc(key, GLFW_PRESS);
+        for (const auto& pair : keyPressed) {
+            if (pair.second) {
+                keyCallbackFunc(pair.first, GLFW_PRESS);
             }
         }
     }
+    if (camera) {
+        camera->updateMovement(deltaTime);
+    }
 }
 
+// ==================== Завершение работы ====================
 void Core::shutdown() {
-    if (!initialized) return;
+    if (!initialized) {
+        LOG_WARNING("Движок уже завершил работу");
+        return;
+    }
 
-    std::cout << "Shutting down Core..." << std::endl;
+    LOG_INFO("Завершение работы движка...");
 
+    // Закрываем окно
     if (window) {
         glfwDestroyWindow(window);
         window = nullptr;
+        LOG_DEBUG("Окно закрыто");
     }
-
+    if (camera) {
+        delete camera;
+        camera = nullptr;
+    }
+    // Завершаем GLFW
     glfwTerminate();
+    LOG_DEBUG("GLFW завершен");
+
     initialized = false;
     running = false;
 
-    std::cout << "Core shutdown complete." << std::endl;
+    LOG_INFO("Движок успешно завершил работу");
 }
 
-// ============== Callback-функции GLFW ==============
-
+// ==================== Callback для изменения размера окна ====================
 void Core::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     auto* core = static_cast<Core*>(glfwGetWindowUserPointer(window));
     if (!core) return;
@@ -314,20 +387,44 @@ void Core::framebufferSizeCallback(GLFWwindow* window, int width, int height) {
     // Обновляем viewport
     glViewport(0, 0, width, height);
 
+    LOG_INFO("Размер окна изменен: %dx%d", width, height);
+
     // Вызываем пользовательский callback
     if (core->resizeCallbackFunc) {
         core->resizeCallbackFunc(width, height);
     }
-
-    std::cout << "Window resized to: " << width << "x" << height << std::endl;
 }
 
+// ==================== Callback для клавиатуры ====================
 void Core::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
     auto* core = static_cast<Core*>(glfwGetWindowUserPointer(window));
-    if (!core) return;
+    if (!core || !core->camera) return;
 
     // Обновляем состояние клавиш
     core->keyPressed[key] = (action != GLFW_RELEASE);
+
+    // Устанавливаем флаги движения для камеры (не вызываем processKeyboard!)
+    if (core->camera) {
+        bool enable = (action == GLFW_PRESS || action == GLFW_REPEAT);
+
+        switch (key) {
+        case GLFW_KEY_W:      core->camera->setMovement(Camera::FORWARD, enable); break;
+        case GLFW_KEY_S:      core->camera->setMovement(Camera::BACKWARD, enable); break;
+        case GLFW_KEY_A:      core->camera->setMovement(Camera::LEFT, enable); break;
+        case GLFW_KEY_D:      core->camera->setMovement(Camera::RIGHT, enable); break;
+        case GLFW_KEY_SPACE:  core->camera->setMovement(Camera::UP, enable); break;
+        case GLFW_KEY_LEFT_SHIFT: core->camera->setMovement(Camera::DOWN, enable); break;
+        case GLFW_KEY_O: core->setVsync(0); break;
+        }
+    }
+
+    // Логируем нажатия
+    if (action == GLFW_PRESS) {
+        LOG_TRACE("Клавиша нажата: %d (scancode: %d)", key, scancode);
+    }
+    else if (action == GLFW_RELEASE) {
+        LOG_TRACE("Клавиша отпущена: %d", key);
+    }
 
     // Вызываем пользовательский callback
     if (core->keyCallbackFunc) {
@@ -335,26 +432,322 @@ void Core::keyCallback(GLFWwindow* window, int key, int scancode, int action, in
     }
 }
 
-// ============== Вспомогательные функции ==============
 
-namespace CoreUtils {
+// ==================== Callback для движения мыши ====================
+void Core::mouseCallback(GLFWwindow* window, double xpos, double ypos) {
+    auto* core = static_cast<Core*>(glfwGetWindowUserPointer(window));
+    if (!core || !core->camera) return;
 
-    bool checkGLError(const char* function, const char* file, int line) {
-        GLenum error = glGetError();
-        if (error != GL_NO_ERROR) {
-            std::cerr << "OpenGL Error (" << error << "): "
-                << function << " in " << file << ":" << line << std::endl;
-            return false;
+    if (core->firstMouse) {
+        core->lastX = xpos;
+        core->lastY = ypos;
+        core->firstMouse = false;
+    }
+
+    float xoffset = static_cast<float>(xpos - core->lastX);
+    float yoffset = static_cast<float>(core->lastY - ypos); // обратный порядок для Y
+
+    core->lastX = xpos;
+    core->lastY = ypos;
+
+    // Обрабатываем движение мыши только если зажата правая кнопка
+    if (core->mouseButtonPressed) {
+        core->camera->processMouseMovement(xoffset, yoffset);
+    }
+}
+
+// ==================== Callback для кнопок мыши ====================
+void Core::mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+    auto* core = static_cast<Core*>(glfwGetWindowUserPointer(window));
+    if (!core) return;
+
+    core->mouseButtonPressed = (action == GLFW_PRESS);
+
+    // Логируем нажатия
+    const char* buttonName = "";
+    switch (button) {
+    case GLFW_MOUSE_BUTTON_LEFT:   buttonName = "LEFT"; break;
+    case GLFW_MOUSE_BUTTON_RIGHT:  buttonName = "RIGHT"; break;
+    case GLFW_MOUSE_BUTTON_MIDDLE: buttonName = "MIDDLE"; break;
+    default:                       buttonName = "OTHER"; break;
+    }
+
+    if (action == GLFW_PRESS) {
+        LOG_DEBUG("Кнопка мыши нажата: %s", buttonName);
+    }
+    else {
+        LOG_DEBUG("Кнопка мыши отпущена: %s", buttonName);
+    }
+
+    // Вызываем пользовательский callback
+    if (core->mouseButtonCallbackFunc) {
+        core->mouseButtonCallbackFunc(button, action);
+    }
+}
+
+// ==================== Инициализация шейдеров по умолчанию ====================
+void Core::initializeDefaultShaders() {
+    LOG_INFO("Загрузка шейдеров по умолчанию...");
+
+    // Базовый шейдер для цветных объектов
+    const std::string basicVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+layout (location = 2) in vec2 aTexCoord;
+
+out vec3 ourColor;
+out vec2 TexCoord;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * model * vec4(aPos, 1.0);
+    ourColor = aColor;
+    TexCoord = aTexCoord;
+}
+)";
+
+    const std::string basicFragmentShader = R"(
+#version 330 core
+in vec3 ourColor;
+in vec2 TexCoord;
+
+out vec4 FragColor;
+
+uniform sampler2D texture1;
+uniform bool useTexture;
+
+void main() {
+    if (useTexture) {
+        FragColor = texture(texture1, TexCoord);
+    } else {
+        FragColor = vec4(ourColor, 1.0);
+    }
+}
+)";
+
+    // Шейдер освещения по Фонгу
+    const std::string phongVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aNormal;
+layout (location = 2) in vec2 aTexCoord;
+
+out vec3 FragPos;
+out vec3 Normal;
+out vec2 TexCoord;
+
+uniform mat4 model;
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    FragPos = vec3(model * vec4(aPos, 1.0));
+    Normal = mat3(transpose(inverse(model))) * aNormal;
+    TexCoord = aTexCoord;
+    
+    gl_Position = projection * view * vec4(FragPos, 1.0);
+}
+)";
+
+    const std::string phongFragmentShader = R"(
+#version 330 core
+in vec3 FragPos;
+in vec3 Normal;
+in vec2 TexCoord;
+
+out vec4 FragColor;
+
+struct Material {
+    sampler2D diffuse;
+    sampler2D specular;
+    float shininess;
+};
+
+struct Light {
+    vec3 position;
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+uniform Material material;
+uniform Light light;
+uniform vec3 viewPos;
+
+void main() {
+    // Ambient
+    vec3 ambient = light.ambient * vec3(texture(material.diffuse, TexCoord));
+    
+    // Diffuse
+    vec3 norm = normalize(Normal);
+    vec3 lightDir = normalize(light.position - FragPos);
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = light.diffuse * diff * vec3(texture(material.diffuse, TexCoord));
+    
+    // Specular
+    vec3 viewDir = normalize(viewPos - FragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    vec3 specular = light.specular * spec * vec3(texture(material.specular, TexCoord));
+    
+    vec3 result = ambient + diffuse + specular;
+    FragColor = vec4(result, 1.0);
+}
+)";
+
+    // Шейдер для рисования линий и точек
+    const std::string simpleVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+layout (location = 1) in vec3 aColor;
+
+out vec3 lineColor;
+
+uniform mat4 view;
+uniform mat4 projection;
+
+void main() {
+    gl_Position = projection * view * vec4(aPos, 1.0);
+    lineColor = aColor;
+}
+)";
+
+    const std::string simpleFragmentShader = R"(
+#version 330 core
+in vec3 lineColor;
+
+out vec4 FragColor;
+
+void main() {
+    FragColor = vec4(lineColor, 1.0);
+}
+)";
+
+    // Загружаем шейдеры
+    if (shaderManager) {
+        if (shaderManager->createShaderFromSource("basic",
+            basicVertexShader,
+            basicFragmentShader)) {
+            LOG_INFO("Базовый шейдер загружен");
         }
-        return true;
+        else {
+            LOG_ERROR("Не удалось загрузить базовый шейдер");
+        }
+
+        if (shaderManager->createShaderFromSource("phong",
+            phongVertexShader,
+            phongFragmentShader)) {
+            LOG_INFO("Шейдер Фонга загружен");
+        }
+        else {
+            LOG_ERROR("Не удалось загрузить шейдер Фонга");
+        }
+
+        if (shaderManager->createShaderFromSource("simple",
+            simpleVertexShader,
+            simpleFragmentShader)) {
+            LOG_INFO("Простой шейдер для линий загружен");
+        }
+        else {
+            LOG_ERROR("Не удалось загрузить простой шейдер");
+        }
     }
 
-    void printGLInfo() {
-        std::cout << "=== OpenGL Information ===" << std::endl;
-        std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
-        std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-        std::cout << "Version: " << glGetString(GL_VERSION) << std::endl;
-        std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
-        std::cout << "==========================" << std::endl;
+    LOG_INFO("Шейдеры по умолчанию загружены");
+}
+
+// ==================== Проверка ошибок OpenGL ====================
+bool Core::checkGLError(const char* function, const char* file, int line) {
+    GLenum error = glGetError();
+    if (error != GL_NO_ERROR) {
+        const char* errorStr = "";
+        switch (error) {
+        case GL_INVALID_ENUM:                  errorStr = "GL_INVALID_ENUM"; break;
+        case GL_INVALID_VALUE:                 errorStr = "GL_INVALID_VALUE"; break;
+        case GL_INVALID_OPERATION:             errorStr = "GL_INVALID_OPERATION"; break;
+        case GL_INVALID_FRAMEBUFFER_OPERATION: errorStr = "GL_INVALID_FRAMEBUFFER_OPERATION"; break;
+        case GL_OUT_OF_MEMORY:                 errorStr = "GL_OUT_OF_MEMORY"; break;
+        default:                               errorStr = "Неизвестная ошибка"; break;
+        }
+
+        LOG_ERROR("Ошибка OpenGL: %s (%d) в %s (%s:%d)",
+            errorStr, error, function, file, line);
+        return false;
     }
+    return true;
+}
+
+// ==================== Установка цвета очистки ====================
+void Core::setClearColor(const glm::vec4& color) {
+    config.clearColor = color;
+    glClearColor(color.r, color.g, color.b, color.a);
+    LOG_DEBUG("Цвет очистки установлен: (%.2f, %.2f, %.2f, %.2f)",
+        color.r, color.g, color.b, color.a);
+}
+
+// ==================== Установка размера окна ====================
+void Core::setWindowSize(unsigned int width, unsigned int height) {
+    if (window) {
+        glfwSetWindowSize(window, width, height);
+        config.width = width;
+        config.height = height;
+        LOG_INFO("Размер окна установлен: %dx%d", width, height);
+    }
+}
+
+// ==================== Установка заголовка окна ====================
+void Core::setWindowTitle(const std::string& title) {
+    if (window) {
+        glfwSetWindowTitle(window, title.c_str());
+        config.title = title;
+        LOG_DEBUG("Заголовок окна установлен: %s", title.c_str());
+    }
+}
+
+// ==================== Установка уровня логирования ====================
+void Core::setLogLevel(LogLevel level) {
+    if (logger) {
+        logger->setLevel(level);
+        LOG_INFO("Уровень логирования установлен: %d", static_cast<int>(level));
+    }
+}
+
+void Core::setVsync(bool vsync)
+{
+    config.vsync = vsync;
+    glfwSwapInterval(vsync);
+}
+
+// ==================== Остановка движка ====================
+void Core::stop() {
+    running = false;
+}
+
+// ==================== Установка callback'ов ====================
+void Core::setKeyCallback(KeyCallback callback) {
+    keyCallbackFunc = std::move(callback);
+}
+
+void Core::setMouseCallback(MouseCallback callback) {
+    mouseCallbackFunc = std::move(callback);
+}
+
+void Core::setMouseButtonCallback(MouseButtonCallback callback) {
+    mouseButtonCallbackFunc = std::move(callback);
+}
+
+void Core::setResizeCallback(ResizeCallback callback) {
+    resizeCallbackFunc = std::move(callback);
+}
+
+void Core::setUpdateCallback(UpdateCallback callback) {
+    updateCallbackFunc = std::move(callback);
+}
+
+void Core::addRenderCallback(std::function<void()> callback) {
+    renderCallbacks.push_back(callback);
 }
