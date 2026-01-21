@@ -41,7 +41,7 @@ public:
         // Создаем пол (большой квадрат)
         auto floor = std::make_unique<GameObject>("Пол");
         floor->getTransform()->position = glm::vec3(0.0f, -2.0f, 0.0f);
-        floor->getTransform()->scale = glm::vec3(10.0f, 0.1f, 10.0f);
+        floor->getTransform()->scale = glm::vec3(10.0f, 1.1f, 10.0f);
         auto floorRenderer = floor->addComponent<MeshRenderer>();
         floorRenderer->setMesh(Mesh::createCube());
         floor->getComponent<MeshRenderer>()->getMesh()->render(); // Генерируем буферы

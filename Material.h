@@ -7,12 +7,12 @@
 #include <string>
 
 struct MaterialProperties {
-    glm::vec3 ambient = glm::vec3(0.2f);
-    glm::vec3 diffuse = glm::vec3(0.8f);
-    glm::vec3 specular = glm::vec3(1.0f);
-    float shininess = 32.0f;
-    float opacity = 1.0f;
-    bool useTexture = false;
+    glm::vec3 ambient = glm::vec3(0.2f);   // Фоновое освещение
+    glm::vec3 diffuse = glm::vec3(0.8f);   // Рассеянный свет
+    glm::vec3 specular = glm::vec3(1.0f);  // Зеркальное отражение
+    float shininess = 32.0f;               // Степень блеска (экспонента)
+    float opacity = 1.0f;                  // Прозрачность (1 = полностью непрозрачный)
+    bool useTexture = false;               // Использовать ли текстуры
 };
 
 class Material {

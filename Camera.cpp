@@ -32,7 +32,7 @@ void Camera::setMovement(int direction, bool enable) {
     }
 
     // Логируем изменение состояния
-    const char* dirNames[] = { "FORWARD", "BACKWARD", "LEFT", "RIGHT", "UP", "DOWN" };
+    //const char* dirNames[] = { "FORWARD", "BACKWARD", "LEFT", "RIGHT", "UP", "DOWN" };
     // LOG_TRACE("Camera movement %s: %s", dirNames[direction], enable ? "ON" : "OFF");
 }
 
