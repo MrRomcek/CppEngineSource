@@ -140,14 +140,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="CharacterController.cpp" />
+    <ClCompile Include="Collider.cpp" />
     <ClCompile Include="Core.cpp" />
     <ClCompile Include="glad.c" />
     <ClCompile Include="Light.cpp" />
     <ClCompile Include="Main.cpp" />
+    <ClCompile Include="Material.cpp" />
     <ClCompile Include="MeshRenderer.cpp" />
+    <ClCompile Include="ModelLoader.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\detail\glm.cpp" />
     <ClCompile Include="packages\glm.1.0.3\build\native\include\glm\glm.cppm" />
+    <ClCompile Include="PhysicsEngine.cpp" />
+    <ClCompile Include="PrefabFactory.cpp" />
     <ClCompile Include="Renderer.cpp" />
+    <ClCompile Include="Rigidbody.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Texture.cpp" />
   </ItemGroup>
@@ -1193,9 +1200,13 @@
     <None Include="shaders\basic.vert" />
     <None Include="shaders\phong.frag" />
     <None Include="shaders\phong.vert" />
+    <None Include="shaders\standard.frag" />
+    <None Include="shaders\standard.vert" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="CharacterController.h" />
+    <ClInclude Include="Collider.h" />
     <ClInclude Include="Component.h" />
     <ClInclude Include="Core.h" />
     <ClInclude Include="GameObject.h" />
@@ -1204,6 +1215,7 @@
     <ClInclude Include="Light.h" />
     <ClInclude Include="Material.h" />
     <ClInclude Include="MeshRenderer.h" />
+    <ClInclude Include="ModelLoader.h" />
     <ClInclude Include="packages\glfw.3.4.0\build\native\include\GLFW\glfw3.h" />
     <ClInclude Include="packages\glfw.3.4.0\build\native\include\GLFW\glfw3native.h" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\common.hpp" />
@@ -1496,11 +1508,15 @@
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vec3.hpp" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vec4.hpp" />
     <ClInclude Include="packages\glm.1.0.3\build\native\include\glm\vector_relational.hpp" />
+    <ClInclude Include="PhysicsEngine.h" />
+    <ClInclude Include="PrefabFactory.h" />
     <ClInclude Include="Renderer.h" />
     <ClInclude Include="RenderQueue.h" />
+    <ClInclude Include="Rigidbody.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Logger.h" />
+    <ClInclude Include="stb_image.h" />
     <ClInclude Include="Texture.h" />
     <ClInclude Include="Transform.h" />
   </ItemGroup>

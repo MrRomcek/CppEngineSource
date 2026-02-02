@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "Transform.h"
 #include <iostream>
 
 Camera::Camera(Type type)
@@ -18,7 +19,12 @@ Camera::Camera(Type type)
 }
 
 void Camera::update(float deltaTime) {
-    updateMovement(deltaTime);
+    if (mode == Mode::Free) {
+        updateMovement(deltaTime);
+    }
+    else {
+        updateFollowCamera(deltaTime);
+    }
 }
 
 void Camera::setMovement(int direction, bool enable) {
@@ -121,4 +127,37 @@ void Camera::updateCameraVectors() {
     // Пересчитываем правый и верхний векторы
     right = glm::normalize(glm::cross(front, worldUp));
     up = glm::normalize(glm::cross(right, front));
+}
+
+void Camera::updateFollowCamera(float deltaTime) {
+    if (!target) return;
+
+    glm::vec3 targetPos = target->position + thirdPersonOffset;
+
+    if (mode == Mode::ThirdPerson) {
+        // Вычисляем позицию камеры позади и выше цели
+        float horizontalDistance = thirdPersonDistance * cos(glm::radians(pitch));
+        float verticalDistance = thirdPersonDistance * sin(glm::radians(pitch));
+
+        float offsetX = horizontalDistance * sin(glm::radians(yaw));
+        float offsetZ = horizontalDistance * cos(glm::radians(yaw));
+
+        glm::vec3 desiredPosition;
+        desiredPosition.x = targetPos.x - offsetX;
+        desiredPosition.y = targetPos.y + thirdPersonHeight + verticalDistance;
+        desiredPosition.z = targetPos.z - offsetZ;
+
+        // Плавное следование
+        position = glm::mix(position, desiredPosition, followSmoothness * deltaTime);
+
+        // Камера всегда смотрит на цель
+        front = glm::normalize(targetPos - position);
+        right = glm::normalize(glm::cross(front, worldUp));
+        up = glm::normalize(glm::cross(right, front));
+    }
+    else if (mode == Mode::FirstPerson) {
+        // Камера находится в позиции цели
+        position = targetPos;
+        updateCameraVectors();
+    }
 }

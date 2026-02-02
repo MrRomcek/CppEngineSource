@@ -6,8 +6,21 @@
 #include <chrono>
 #include <thread>
 
-// ==================== Вспомогательные функции ====================
+// ==================== Helper Functions ====================
 namespace CoreUtils {
+    void setupConsoleForUTF8() {
+        // Set Windows console to use code page 1251 (Cyrillic) or 65001 (UTF-8)
+        SetConsoleOutputCP(1251);
+        SetConsoleCP(1251);
+
+        // Enable virtual terminal processing for colored output
+        HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD dwMode = 0;
+        GetConsoleMode(hOut, &dwMode);
+        dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        SetConsoleMode(hOut, dwMode);
+    }
+
     void printGLInfo() {
         std::cout << "=== OpenGL Information ===" << std::endl;
         std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
@@ -18,21 +31,24 @@ namespace CoreUtils {
     }
 }
 
-// ==================== Конструктор Core ====================
+// ==================== Core Constructor ====================
 Core::Core() {
-    // Создаем логгер
+    // Setup console encoding
+    CoreUtils::setupConsoleForUTF8();
+
+    // Create logger
     logger = LogManager::getInstance().createConsoleLogger("Core");
 }
 
-// ==================== Деструктор Core ====================
+// ==================== Core Destructor ====================
 Core::~Core() {
     shutdown();
 }
 
-// ==================== Инициализация движка ====================
+// ==================== Initialize Engine ====================
 bool Core::initialize(const Config& config) {
     if (initialized) {
-        LOG_WARNING("Движок уже инициализирован!");
+        LOG_WARNING("Engine already initialized!");
         return false;
     }
 
@@ -40,19 +56,19 @@ bool Core::initialize(const Config& config) {
     this->config = config;
     logger->setLevel(config.logLevel);
 
-    LOG_INFO("Инициализация движка...");
-    LOG_INFO("Конфигурация: %dx%d, заголовок: %s",
+    LOG_INFO("Initializing engine...");
+    LOG_INFO("Config: %dx%d, title: %s",
         config.width, config.height, config.title.c_str());
 
-    // Инициализация GLFW
+    // Initialize GLFW
     if (!glfwInit()) {
-        LOG_ERROR("Не удалось инициализировать GLFW");
+        LOG_ERROR("Failed to initialize GLFW");
         return false;
     }
 
-    LOG_DEBUG("GLFW инициализирован");
+    LOG_DEBUG("GLFW initialized");
 
-    // Настройка GLFW
+    // Configure GLFW
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, config.glMajorVersion);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, config.glMinorVersion);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -62,7 +78,7 @@ bool Core::initialize(const Config& config) {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-    // Создание окна
+    // Create window
     window = glfwCreateWindow(
         config.width,
         config.height,
@@ -72,40 +88,40 @@ bool Core::initialize(const Config& config) {
     );
 
     if (!window) {
-        LOG_ERROR("Не удалось создать окно GLFW");
+        LOG_ERROR("Failed to create GLFW window");
         glfwTerminate();
         return false;
     }
 
-    LOG_INFO("Окно создано: %dx%d", config.width, config.height);
+    LOG_INFO("Window created: %dx%d", config.width, config.height);
 
-    // Настройка контекста OpenGL
+    // Setup OpenGL context
     glfwMakeContextCurrent(window);
     glfwSetWindowUserPointer(window, this);
 
-    // Настройка VSync
+    // Setup VSync
     glfwSwapInterval(config.vsync ? 1 : 0);
-    LOG_DEBUG("VSync: %s", config.vsync ? "включен" : "выключен");
+    LOG_DEBUG("VSync: %s", config.vsync ? "enabled" : "disabled");
 
-    // Настройка callback'ов GLFW
+    // Setup GLFW callbacks
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
     glfwSetKeyCallback(window, keyCallback);
     glfwSetCursorPosCallback(window, mouseCallback);
     glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
-    LOG_DEBUG("Callback'и GLFW установлены");
+    LOG_DEBUG("GLFW callbacks set");
 
-    // Инициализация GLAD
+    // Initialize GLAD
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        LOG_ERROR("Не удалось инициализировать GLAD");
+        LOG_ERROR("Failed to initialize GLAD");
         glfwDestroyWindow(window);
         glfwTerminate();
         return false;
     }
 
-    LOG_DEBUG("GLAD инициализирован");
+    LOG_DEBUG("GLAD initialized");
 
-    // Настройка OpenGL
+    // Setup OpenGL
     glViewport(0, 0, config.width, config.height);
     glClearColor(
         config.clearColor.r,
@@ -114,103 +130,103 @@ bool Core::initialize(const Config& config) {
         config.clearColor.a
     );
 
-    // Включаем тест глубины для 3D
+    // Enable depth test for 3D
     glEnable(GL_DEPTH_TEST);
-    LOG_DEBUG("Тест глубины включен");
+    LOG_DEBUG("Depth test enabled");
 
-    // Включаем смешивание цветов для прозрачности
+    // Enable blending for transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    LOG_DEBUG("Смешивание цветов включено");
+    LOG_DEBUG("Blending enabled");
 
     camera = new Camera();
     camera->setPosition(glm::vec3(0.0f, 0.0f, 5.0f));
-    LOG_DEBUG("Камера создана и инициализирована");
+    LOG_DEBUG("Camera created and initialized");
 
 
-    // Вывод информации о OpenGL
+    // Print OpenGL info
     CoreUtils::printGLInfo();
 
-    // Инициализация менеджера шейдеров
+    // Initialize shader manager
     shaderManager = std::make_unique<ShaderManager>();
 
-    // Настройка многопоточности
+    // Setup multithreading
     if (config.multithreaded) {
         multithreadingEnabled = true;
-        LOG_INFO("Многопоточность включена (%d потоков)", config.maxThreads);
+        LOG_INFO("Multithreading enabled (%d threads)", config.maxThreads);
 
-        // Создаем рабочие потоки
+        // Create worker threads
         for (int i = 0; i < config.maxThreads; ++i) {
             if (i == 0) {
-                // Первый поток для обновления
+                // First thread for updates
                 workerThreads.emplace_back(&Core::updateThreadFunction, this);
-                LOG_DEBUG("Создан поток обновления #%d", i);
+                LOG_DEBUG("Created update thread #%d", i);
             }
             else {
-                // Остальные потоки для рендеринга
+                // Other threads for rendering
                 workerThreads.emplace_back(&Core::renderThreadFunction, this);
-                LOG_DEBUG("Создан поток рендеринга #%d", i);
+                LOG_DEBUG("Created render thread #%d", i);
             }
         }
     }
     else {
-        LOG_INFO("Многопоточность выключена");
+        LOG_INFO("Multithreading disabled");
     }
 
     initialized = true;
-    LOG_INFO("Движок успешно инициализирован!");
+    LOG_INFO("Engine initialized successfully!");
     return true;
 }
 
-// ==================== Запуск главного цикла ====================
+// ==================== Start Main Loop ====================
 void Core::run() {
     if (!initialized || !window) {
-        LOG_ERROR("Движок не инициализирован!");
+        LOG_ERROR("Engine not initialized!");
         return;
     }
 
-    LOG_INFO("Запуск главного цикла...");
+    LOG_INFO("Starting main loop...");
     running = true;
 
-    // Используем high_resolution_clock для точного времени
+    // Use high_resolution_clock for precise timing
     using Clock = std::chrono::high_resolution_clock;
     auto lastTime = Clock::now();
     float deltaTime = 0.0f;
 
-    // Для FPS
+    // For FPS
     float fpsTimer = 0.0f;
     int frameCount = 0;
     float fps = 0.0f;
 
-    // ==================== Главный игровой цикл ====================
+    // ==================== Main Game Loop ====================
     while (running && !glfwWindowShouldClose(window)) {
-        // ТОЧНОЕ вычисление deltaTime
+        // Calculate deltaTime
         auto currentTime = Clock::now();
         std::chrono::duration<float> elapsed = currentTime - lastTime;
         deltaTime = elapsed.count();
         lastTime = currentTime;
 
-        // Ограничиваем deltaTime (защита от "зависаний")
+        // Limit deltaTime (protection from hangs)
         if (deltaTime > 0.1f) {
-            deltaTime = 0.1f; // Максимум 100 мс
-            LOG_WARNING("Большой deltaTime: %.3f мс, ограничено до 100 мс", deltaTime * 1000.0f);
+            deltaTime = 0.1f; // Max 100 ms
+            LOG_WARNING("Large deltaTime: %.3f ms, limited to 100 ms", deltaTime * 1000.0f);
         }
 
-        // Сохраняем для доступа извне
+        // Store for external access
         this->deltaTime = deltaTime;
 
-        // Расчет FPS
+        // Calculate FPS
         frameCount++;
         fpsTimer += deltaTime;
 
-        // Обновляем FPS каждую секунду
+        // Update FPS every second
         if (fpsTimer >= 1.0f) {
             fps = frameCount / fpsTimer;
-            this->fps = fps; // Сохраняем
+            this->fps = fps; // Store
             frameCount = 0;
             fpsTimer = 0.0f;
 
-            // Выводим FPS в заголовок окна
+            // Show FPS in window title
             std::string newTitle = config.title +
                 " | FPS: " + std::to_string(static_cast<int>(fps)) +
                 " | Delta: " + std::to_string(deltaTime * 1000.0f).substr(0, 6) + " ms";
@@ -228,6 +244,11 @@ void Core::run() {
             // ... многопоточный код ...
         }
         else {
+            // Обновляем камеру (слежение за целью)
+            if (camera) {
+                camera->update(deltaTime);
+            }
+
             // Последовательное обновление
             if (updateCallbackFunc) {
                 updateCallbackFunc(deltaTime);
@@ -249,17 +270,17 @@ void Core::run() {
                 callback();
             }
 
-            // Проверка ошибок OpenGL
+            // Check OpenGL errors
             GL_CHECK();
         }
 
-        // Обмен буферов
+        // Swap buffers
         glfwSwapBuffers(window);
     }
 
-    // Остановка потоков
+    // Stop threads
     if (multithreadingEnabled) {
-        LOG_INFO("Остановка рабочих потоков...");
+        LOG_INFO("Stopping worker threads...");
         stopThreads = true;
         renderCV.notify_all();
 
@@ -269,16 +290,16 @@ void Core::run() {
             }
         }
         workerThreads.clear();
-        LOG_INFO("Все потоки остановлены");
+        LOG_INFO("All threads stopped");
     }
 
-    LOG_INFO("Главный цикл завершен");
+    LOG_INFO("Main loop finished");
     shutdown();
 }
 
-// ==================== Функция потока обновления ====================
+// ==================== Update Thread Function ====================
 void Core::updateThreadFunction() {
-    LOG_DEBUG("Поток обновления запущен");
+    LOG_DEBUG("Update thread started");
 
     while (!stopThreads) {
         std::unique_lock<std::mutex> lock(renderMutex);

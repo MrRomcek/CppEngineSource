@@ -1,175 +1,224 @@
+// ============================================================================
+// Main.cpp - Glavnyj fajl prilozheniya
+// ============================================================================
+
 #include "Core.h"
 #include "GameObject.h"
 #include "MeshRenderer.h"
+#include "PhysicsEngine.h"
+#include "Rigidbody.h"
+#include "Collider.h"
+#include "CharacterController.h"
+#include "PrefabFactory.h"
 #include <iostream>
-#include <locale>
 #include <memory>
 
 class MyApplication {
 public:
     void run() {
-        // Устанавливаем локаль
-        std::locale::global(std::locale("ru_RU.UTF-8"));
-        std::wcout.imbue(std::locale("ru_RU.UTF-8"));
-
-        // ==================== Конфигурация приложения ====================
+        // Konfiguraciya prilozheniya
         Core::Config config;
         config.width = 1280;
         config.height = 720;
-        config.title = "Мой Движок";
+        config.title = "Game Engine";
         config.multithreaded = false;
         config.logLevel = LogLevel::TRACE;
         config.clearColor = glm::vec4(0.1f, 0.1f, 0.2f, 1.0f);
 
-        LOG_INFO("=== Запуск приложения ===");
-        LOG_INFO("Управление:");
-        LOG_INFO("  WASD - движение камеры");
-        LOG_INFO("  Space/Shift - вверх/вниз");
-        LOG_INFO("  Правая кнопка мыши + движение - поворот камеры");
-        LOG_INFO("  ESC - выход");
+        LOG_INFO("=== Zapusk prilozheniya ===");
+        LOG_INFO("Upravlenie:");
+        LOG_INFO("  WASD - dvizhenie");
+        LOG_INFO("  Space - pryzhok");
+        LOG_INFO("  Mouse - povorot kamery");
+        LOG_INFO("  ESC - vyhod");
 
-        // ==================== Инициализация ядра ====================
+        // Inicializaciya yadra
         Core& core = Core::getInstance();
         if (!core.initialize(config)) {
-            LOG_CRITICAL("Не удалось инициализировать движок!");
+            LOG_CRITICAL("Oshibka inicializacii!");
             return;
         }
 
-        // ==================== Создание игровых объектов ====================
-        LOG_INFO("Создание игровых объектов...");
+        // Inicializaciya fiziki
+        PhysicsEngine::getInstance().initialize();
+        LOG_INFO("Fizicheskij dvizhok inicializirovan");
 
-        // Создаем пол (большой квадрат)
-        auto floor = std::make_unique<GameObject>("Пол");
-        floor->getTransform()->position = glm::vec3(0.0f, -2.0f, 0.0f);
-        floor->getTransform()->scale = glm::vec3(10.0f, 1.1f, 10.0f);
-        auto floorRenderer = floor->addComponent<MeshRenderer>();
-        floorRenderer->setMesh(Mesh::createCube());
-        floor->getComponent<MeshRenderer>()->getMesh()->render(); // Генерируем буферы
+        // Sozdanie igrovyh objektov
+        LOG_INFO("Sozdanie igrovyh objektov...");
 
-        // Создаем центральный куб
-        auto centerCube = std::make_unique<GameObject>("Центральный куб");
-        centerCube->getTransform()->position = glm::vec3(0.0f, 0.0f, 0.0f);
-        auto cubeRenderer = centerCube->addComponent<MeshRenderer>();
-        cubeRenderer->setMesh(Mesh::createCube());
-        centerCube->getComponent<MeshRenderer>()->getMesh()->render();
+        // Sozdaem pol
+        auto floor = PrefabFactory::createFloor("Floor");
+        floor->getComponent<MeshRenderer>()->getMesh()->render();
+        gameObjects.push_back(std::move(floor));
 
-        // Создаем несколько объектов вокруг
+        // Sozdaem personazha
+        character = PrefabFactory::createCharacter("Player");
+        character->getTransform()->position = glm::vec3(0.0f, 2.0f, 0.0f);
+        character->getComponent<MeshRenderer>()->getMesh()->render();
+
+        // Nastrojka kamery ot pervogo lica
+        Camera* camera = core.getCamera();
+        camera->setMode(Camera::Mode::FirstPerson);
+        camera->setTarget(character->getTransform());
+        camera->setThirdPersonOffset(glm::vec3(0.0f, 0.8f, 0.0f));
+
+        // Privyazyvaem kameru k kontrolleru personazha
+        auto controller = character->getComponent<CharacterController>();
+        if (controller) {
+            controller->setCamera(camera);
+        }
+        LOG_INFO("Kamera privyazana k personazhu");
+
+        // Sozdaem dinamicheskie objekty
         for (int i = 0; i < 5; i++) {
             float angle = (float)i * glm::radians(72.0f);
-            float radius = 3.0f;
+            float radius = 4.0f;
 
-            auto obj = std::make_unique<GameObject>("Объект " + std::to_string(i + 1));
+            auto obj = PrefabFactory::createDynamicObject("Object_" + std::to_string(i + 1));
             obj->getTransform()->position = glm::vec3(
                 cos(angle) * radius,
-                0.0f,
+                3.0f + i,
                 sin(angle) * radius
             );
-            obj->getTransform()->scale = glm::vec3(0.5f, 1.0f + i * 0.2f, 0.5f);
-
-            auto renderer = obj->addComponent<MeshRenderer>();
-            renderer->setMesh(Mesh::createCube());
+            obj->getTransform()->scale = glm::vec3(0.5f, 0.5f, 0.5f);
             obj->getComponent<MeshRenderer>()->getMesh()->render();
 
             gameObjects.push_back(std::move(obj));
         }
 
-        gameObjects.push_back(std::move(floor));
-        gameObjects.push_back(std::move(centerCube));
+        // Sozdaem staticheskie prepyatstviya
+        for (int i = 0; i < 3; i++) {
+            auto obstacle = PrefabFactory::createStaticObject("Obstacle_" + std::to_string(i + 1));
+            obstacle->getTransform()->position = glm::vec3(-3.0f + i * 3.0f, -1.0f, 5.0f);
+            obstacle->getTransform()->scale = glm::vec3(1.0f, 2.0f, 1.0f);
+            obstacle->getComponent<MeshRenderer>()->getMesh()->render();
 
-        // ==================== Настройка callback'ов ====================
+            gameObjects.push_back(std::move(obstacle));
+        }
+
+        // Nastrojka callback-funkcij
         core.setKeyCallback([&](int key, int action) {
             onKey(key, action);
-            });
+        });
 
         core.setMouseCallback([&](double x, double y) {
             onMouseMove(x, y);
-            });
+        });
 
         core.setMouseButtonCallback([&](int button, int action) {
             onMouseButton(button, action);
-            });
+        });
 
         core.setResizeCallback([&](int width, int height) {
             onResize(width, height);
-            });
+        });
 
         core.setUpdateCallback([&](float deltaTime) {
             onUpdate(deltaTime);
-            });
+        });
 
-        // Добавляем рендер-коллбэк
         core.addRenderCallback([&]() {
             onRender();
-            });
+        });
 
-        // ==================== Инициализация объектов ====================
+        // Inicializaciya objektov
         for (auto& obj : gameObjects) {
             obj->start();
         }
+        if (character) {
+            character->start();
+        }
 
-        LOG_INFO("=== Запуск главного цикла ===");
+        LOG_INFO("=== Zapusk glavnogo cikla ===");
         core.run();
-        LOG_INFO("=== Главный цикл завершен ===");
+        LOG_INFO("=== Glavnyj cikl zavershen ===");
     }
 
 private:
+    // Obrabotka klavish
     void onKey(int key, int action) {
+        auto controller = character ? character->getComponent<CharacterController>() : nullptr;
+
+        if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+            if (controller) {
+                switch (key) {
+                case GLFW_KEY_W:
+                    controller->moveForward(1.0f);
+                    break;
+                case GLFW_KEY_S:
+                    controller->moveForward(-1.0f);
+                    break;
+                case GLFW_KEY_A:
+                    controller->moveRight(-1.0f);
+                    break;
+                case GLFW_KEY_D:
+                    controller->moveRight(1.0f);
+                    break;
+                case GLFW_KEY_SPACE:
+                    controller->jump(6.0f);
+                    break;
+                }
+            }
+        }
+
         if (action == GLFW_PRESS) {
             switch (key) {
             case GLFW_KEY_ESCAPE:
-                LOG_INFO("Выход из приложения...");
+                LOG_INFO("Vyhod iz prilozheniya...");
                 Core::getInstance().stop();
                 break;
 
             case GLFW_KEY_F1:
-                LOG_INFO("Помощь по управлению:");
-                LOG_INFO("WASD - движение");
-                LOG_INFO("Space/Shift - вверх/вниз");
-                LOG_INFO("Правая кнопка мыши - поворот");
+                LOG_INFO("Upravlenie:");
+                LOG_INFO("WASD - dvizhenie");
+                LOG_INFO("Space - pryzhok");
+                LOG_INFO("ESC - vyhod");
+                break;
+
+            case GLFW_KEY_R:
+                if (character) {
+                    character->getTransform()->position = glm::vec3(0.0f, 2.0f, 0.0f);
+                    auto rb = character->getComponent<Rigidbody>();
+                    if (rb) rb->setVelocity(glm::vec3(0.0f));
+                    LOG_INFO("Poziciya personazha sbroshena");
+                }
                 break;
             }
         }
     }
 
+    // Obrabotka dvizheniya myshi
     void onMouseMove(double x, double y) {
-        // Движение обрабатывается в Core
     }
 
+    // Obrabotka knopok myshi
     void onMouseButton(int button, int action) {
-        // Кнопки обрабатываются в Core
     }
 
+    // Obrabotka izmeneniya razmera okna
     void onResize(int width, int height) {
-        LOG_INFO("Размер окна изменен: %dx%d", width, height);
+        LOG_INFO("Razmer okna izmenen: %dx%d", width, height);
     }
 
+    // Obnovlenie kazhdyj kadr
     void onUpdate(float deltaTime) {
-        static float time = 0.0f;
-        time += deltaTime;
+        // Obnovlyaem fiziku
+        PhysicsEngine::getInstance().update(deltaTime);
 
-        // Вращаем центральный куб
-        if (gameObjects.size() > 1) {
-            auto& centerCube = gameObjects.back();
-            Transform* transform = centerCube->getTransform();
-            if (transform) {
-                transform->rotate(45.0f * deltaTime, glm::vec3(0.0f, 1.0f, 0.0f));
-                transform->rotate(20.0f * deltaTime, glm::vec3(1.0f, 0.0f, 0.0f));
-            }
+        // Obnovlyaem vse objekty
+        for (auto& obj : gameObjects) {
+            obj->update(deltaTime);
         }
 
-        // Плавное движение объектов вокруг
-        for (size_t i = 0; i < gameObjects.size() - 2; i++) { // -2 чтобы исключить пол и центральный куб
-            auto& obj = gameObjects[i];
-            Transform* transform = obj->getTransform();
-            if (transform) {
-                transform->position.y = sinf(time + i) * 0.5f;
-                transform->rotate(30.0f * deltaTime * (i + 1), glm::vec3(0.0f, 1.0f, 0.0f));
-            }
+        // Obnovlyaem personazha
+        if (character) {
+            character->update(deltaTime);
         }
     }
 
+    // Rendering kazhdyj kadr
     void onRender() {
-        // Рендеринг всех объектов
+        // Renderim vse objekty
         for (auto& obj : gameObjects) {
             if (obj->isActive()) {
                 obj->render();
@@ -178,25 +227,25 @@ private:
     }
 
     std::vector<std::unique_ptr<GameObject>> gameObjects;
+    std::unique_ptr<GameObject> character;
 };
 
+// Tochka vhoda
 int main() {
     try {
-        std::locale::global(std::locale("ru_RU.UTF-8"));
-        std::wcout.imbue(std::locale("ru_RU.UTF-8"));
         Logger* logger = getEngineLogger();
         logger->setLevel(LogLevel::TRACE);
         MyApplication app;
         app.run();
     }
     catch (const std::exception& e) {
-        LOG_CRITICAL("Критическая ошибка: %s", e.what());
-        std::cerr << "Критическая ошибка: " << e.what() << std::endl;
+        LOG_CRITICAL("Kriticheskaya oshibka: %s", e.what());
+        std::cerr << "Error: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
     catch (...) {
-        LOG_CRITICAL("Неизвестная критическая ошибка");
-        std::cerr << "Неизвестная критическая ошибка" << std::endl;
+        LOG_CRITICAL("Neizvestnaya oshibka");
+        std::cerr << "Unknown error" << std::endl;
         return EXIT_FAILURE;
     }
 

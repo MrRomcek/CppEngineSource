@@ -15,6 +15,7 @@
 
 #include "Logger.h"
 #include "Camera.h"
+#include "PhysicsEngine.h"
 
 
 class Camera;
@@ -44,7 +45,7 @@ public:
         int glMajorVersion = 4;
         int glMinorVersion = 6;
         glm::vec4 clearColor = { 0.1f, 0.1f, 0.2f, 1.0f };
-        bool vsync = true;
+        bool vsync = false;
         bool resizable = true;
         bool multithreaded = true;
         int maxThreads = 4;
@@ -91,6 +92,8 @@ public:
 
     void addRenderCallback(std::function<void()> callback);
 
+    // ==================== Physics System ====================
+    PhysicsEngine& getPhysicsEngine() { return physicsEngine; }
 
 private:
     Core();
@@ -122,6 +125,9 @@ private:
     bool initialized = false;
     bool running = false;
     Logger* logger = nullptr;
+
+    // Physics
+    PhysicsEngine& physicsEngine = PhysicsEngine::getInstance();
 
     // Callback'и
     KeyCallback keyCallbackFunc;
